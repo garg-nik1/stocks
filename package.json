@@ -1,0 +1,37 @@
+{
+  "name": "stocks-custom",
+  "productName": "Stocks",
+  "version": "1.0.0",
+  "description": "Desktop stock tracker",
+  "author": "Nikhil",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --mac --dir"
+  },
+  "devDependencies": {
+    "electron": "^42.0.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.nikhil.stocks",
+    "productName": "Stocks",
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "mac": {
+      "category": "public.app-category.finance",
+      "target": [
+        { "target": "dir", "arch": ["arm64", "x64"] }
+      ],
+      "identity": null
+    },
+    "asar": true
+  }
+}

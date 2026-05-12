@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Stock Tracker</title>
+  <style>
+    :root {
+      --bg:      #ffffff;
+      --surface: #f7f8fa;
+      --border:  #e5e7eb;
+      --text:    #111827;
+      --muted:   #6b7280;
+      --soft:    #9ca3af;
+      --green:   #16a34a;
+      --red:     #dc2626;
+      --blue:    #2563eb;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body { height: 100%; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 13px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Header */
+    header {
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 16px 0;
+      flex-shrink: 0;
+    }
+
+    .header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .title {
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: blink 2s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.25; }
+    }
+
+    #status { font-size: 11px; color: var(--muted); }
+
+    /* Indicator strip */
+    .indicators {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      padding: 12px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .indicator {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .indicator-name {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .indicator-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .indicator-price { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+
+    .indicator-pct {
+      font-size: 12px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .indicator-pct.pos { background: rgba(22,163,74,0.12); color: var(--green); }
+    .indicator-pct.neg { background: rgba(220,38,38,0.12); color: var(--red); }
+    .indicator-pct.neu { background: rgba(156,163,175,0.18); color: var(--muted); }
+
+    /* Movers strip (collapsible) */
+    .movers {
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      flex-shrink: 0;
+    }
+    .movers-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 16px;
+      user-select: none;
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .movers-region { font-size: 10px; color: var(--soft); font-weight: 500; }
+    .movers-content {
+      display: none;
+      padding: 0 16px 10px;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .movers.expanded .movers-content { display: grid; }
+
+    .movers-col-title {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      font-weight: 700;
+      padding: 4px 0;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 4px;
+    }
+    .movers-col-title.gain { color: var(--green); }
+    .movers-col-title.loss { color: var(--red); }
+
+    .mover-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 2px;
+      font-size: 12px;
+    }
+    .mover-logo {
+      width: 18px; height: 18px;
+      border-radius: 3px;
+      object-fit: contain;
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+    .mover-logo-fallback {
+      width: 18px; height: 18px;
+      border-radius: 3px;
+      background: var(--surface);
+      color: var(--soft);
+      font-size: 8px;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .mover-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 500;
+      color: var(--text);
+    }
+    .mover-pct { font-weight: 700; font-size: 11px; flex-shrink: 0; }
+    .mover-pct.pos { color: var(--green); }
+    .mover-pct.neg { color: var(--red); }
+    .movers-empty {
+      grid-column: 1 / -1;
+      padding: 8px 0;
+      font-size: 11px;
+      color: var(--soft);
+      text-align: center;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 2px;
+      padding: 0 16px;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .tab {
+      padding: 9px 14px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color 0.12s, border-color 0.12s;
+      user-select: none;
+    }
+
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--text); border-color: var(--text); }
+
+    /* Body / Table */
+    .scroll {
+      flex: 1 1 0;
+      min-height: 0;        /* allow this flex child to shrink so it can scroll */
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    .scroll::-webkit-scrollbar { width: 6px; }
+    .scroll::-webkit-scrollbar-track { background: transparent; }
+    .scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    table { width: 100%; border-collapse: collapse; }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      padding: 9px 14px;
+      text-align: right;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      z-index: 2;
+    }
+
+    thead th:first-child { text-align: left; }
+    thead th:last-child  { width: 36px; padding-right: 10px; }
+
+    thead th.sortable {
+      cursor: pointer;
+      user-select: none;
+      transition: color 0.1s;
+    }
+    thead th.sortable:hover { color: var(--text); }
+    thead th.sortable.active { color: var(--text); }
+    .sort-arrow {
+      display: inline-block;
+      margin-left: 4px;
+      font-size: 9px;
+      color: var(--soft);
+      opacity: 0.5;
+    }
+    thead th.sortable.active .sort-arrow { color: var(--text); opacity: 1; }
+
+    tbody tr.section {
+      background: var(--surface);
+    }
+
+    tbody tr.section td {
+      padding: 8px 14px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+      color: var(--soft);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .add-btn {
+      font-size: 11px;
+      color: var(--blue);
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 3px;
+      text-transform: none;
+      letter-spacing: 0;
+      font-weight: 600;
+    }
+    .add-btn:hover { background: rgba(37,99,235,0.08); }
+
+    tbody tr.add-row td { padding: 10px 14px; background: var(--bg); }
+    .add-input-wrap { display: flex; gap: 8px; align-items: center; }
+    .add-input {
+      flex: 1;
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+    }
+    .add-input:focus { border-color: var(--blue); }
+    .add-hint { font-size: 11px; color: var(--muted); }
+    .add-error { font-size: 11px; color: var(--red); margin-top: 6px; }
+
+    .suggest {
+      margin-top: 6px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      background: var(--bg);
+    }
+    .suggest-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 12px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+    }
+    .suggest-item:last-child { border-bottom: none; }
+    .suggest-item:hover,
+    .suggest-item.active { background: var(--surface); }
+
+    .suggest-left  { min-width: 0; display: flex; align-items: center; gap: 10px; }
+    .suggest-text  { min-width: 0; }
+    .suggest-sym   { font-weight: 600; font-size: 13px; }
+    .suggest-name  { font-size: 11px; color: var(--muted); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 320px; }
+    .suggest-meta  { font-size: 10px; color: var(--soft); text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
+    .suggest-empty { padding: 10px 12px; font-size: 12px; color: var(--muted); }
+
+    tbody tr.row {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.1s;
+    }
+
+    tbody tr.row:hover { background: var(--surface); }
+
+    tbody td {
+      padding: 10px 14px;
+      text-align: right;
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+
+    tbody td:first-child { text-align: left; }
+
+    .remove-cell { width: 36px; padding-right: 10px !important; padding-left: 0 !important; }
+    .remove-btn {
+      width: 22px;
+      height: 22px;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--soft);
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      opacity: 0;
+      transition: opacity 0.15s, background 0.15s, color 0.15s;
+    }
+    tr.row:hover .remove-btn { opacity: 1; }
+    .remove-btn:hover { background: rgba(220,38,38,0.1); color: var(--red); }
+
+    .name { font-weight: 500; font-size: 13px; }
+    .ticker { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+    .name-cell { display: flex; align-items: center; gap: 10px; }
+    .logo {
+      width: 24px; height: 24px;
+      border-radius: 4px;
+      object-fit: contain;
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+    .logo-fallback {
+      width: 24px; height: 24px;
+      border-radius: 4px;
+      background: var(--surface);
+      color: var(--soft);
+      font-size: 10px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .price { font-weight: 600; font-size: 13px; }
+
+    .pos { color: var(--green); }
+    .neg { color: var(--red); }
+    .neu { color: var(--muted); }
+
+    .pct-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .pct-badge.pos { background: rgba(22,163,74,0.12); color: var(--green); }
+    .pct-badge.neg { background: rgba(220,38,38,0.12); color: var(--red); }
+    .pct-badge.neu { background: rgba(156,163,175,0.18); color: var(--muted); }
+
+    .state {
+      padding: 60px 20px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .spinner {
+      width: 22px; height: 22px;
+      border: 2px solid var(--border);
+      border-top-color: var(--muted);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto 12px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-row">
+    <div class="title"><span class="dot"></span>Stock Tracker</div>
+    <div id="status">Loading…</div>
+  </div>
+</header>
+
+<div class="indicators" id="indicators">
+  <div class="indicator"><div class="indicator-name">S&P 500</div><div class="indicator-row"><div class="indicator-price">—</div><div class="indicator-pct neu">—</div></div></div>
+  <div class="indicator"><div class="indicator-name">Nasdaq 100</div><div class="indicator-row"><div class="indicator-price">—</div><div class="indicator-pct neu">—</div></div></div>
+  <div class="indicator"><div class="indicator-name">Dow Jones</div><div class="indicator-row"><div class="indicator-price">—</div><div class="indicator-pct neu">—</div></div></div>
+</div>
+
+<div class="movers" id="movers">
+  <div class="movers-toggle">
+    <span>Top Movers</span>
+    <span class="movers-region" id="movers-region"></span>
+  </div>
+  <div class="movers-content" id="movers-content"></div>
+</div>
+
+<div class="tabs" id="tabs"></div>
+
+<div class="scroll" id="scroll">
+  <div class="state"><div class="spinner"></div>Fetching quotes…</div>
+</div>
+
+<script>
+  // Indicators shown above the tabs vary by region.
+  const TAB_INDICATORS = {
+    'US Stocks': [
+      { symbol: '^GSPC', name: 'S&P 500'    },
+      { symbol: '^NDX',  name: 'Nasdaq 100' },
+      { symbol: '^DJI',  name: 'Dow Jones'  },
+    ],
+    'India': [
+      { symbol: '^NSEI',    name: 'Nifty 50'    },
+      { symbol: '^BSESN',   name: 'Sensex'      },
+      { symbol: '^NSEBANK', name: 'Bank Nifty'  },
+    ],
+  };
+
+  // Default fallback (when active tab has no specific indicator set, e.g. Forex)
+  const DEFAULT_INDICATORS = TAB_INDICATORS['US Stocks'];
+
+  function currentIndicators() {
+    return TAB_INDICATORS[activeTab] || DEFAULT_INDICATORS;
+  }
+
+  function allIndicatorSymbols() {
+    const seen = new Set();
+    const out = [];
+    Object.values(TAB_INDICATORS).forEach(arr => arr.forEach(i => {
+      if (!seen.has(i.symbol)) { seen.add(i.symbol); out.push(i.symbol); }
+    }));
+    return out;
+  }
+
+  // Initial defaults — user can add/remove from here, changes persist.
+  const DEFAULT_TABS = {
+    'US Stocks': {
+      invertColors: false,
+      sections: {
+        'Stocks': [
+          { symbol: 'AMD',    name: 'AMD' },
+          { symbol: 'AMZN',   name: 'Amazon' },
+          { symbol: 'AXP',    name: 'American Express' },
+          { symbol: 'SAN',    name: 'Banco Santander' },
+          { symbol: 'BRK-B',  name: 'Berkshire Hathaway' },
+          { symbol: 'AVGO',   name: 'Broadcom' },
+          { symbol: 'BWXT',   name: 'BWX Technologies' },
+          { symbol: 'CCL',    name: 'Carnival Corporation' },
+          { symbol: 'CVX',    name: 'Chevron' },
+          { symbol: 'COST',   name: 'Costco' },
+          { symbol: 'LLY',    name: 'Eli Lilly' },
+          { symbol: 'XPON',   name: 'Expion360' },
+          { symbol: 'GMED',   name: 'Globus Medical' },
+          { symbol: 'GOOGL',  name: 'Google' },
+          { symbol: 'INTC',   name: 'Intel' },
+          { symbol: 'JNJ',    name: 'Johnson & Johnson' },
+          { symbol: 'JPM',    name: 'JP Morgan' },
+          { symbol: 'LMT',    name: 'Lockheed Martin' },
+          { symbol: 'MU',     name: 'Micron' },
+          { symbol: 'MSFT',   name: 'Microsoft' },
+          { symbol: 'OXY',    name: 'Occidental Petroleum' },
+          { symbol: 'PLTR',   name: 'Palantir' },
+          { symbol: 'PG',     name: 'Procter & Gamble' },
+          { symbol: 'RDDT',   name: 'Reddit' },
+          { symbol: 'SNDK',   name: 'SanDisk' },
+          { symbol: 'STX',    name: 'Seagate' },
+          { symbol: 'TGT',    name: 'Target' },
+          { symbol: 'TTD',    name: 'Trade Desk' },
+          { symbol: 'WMT',    name: 'Walmart' },
+          { symbol: 'WWD',    name: 'Woodward Inc' },
+        ],
+        'Others': [
+          { symbol: '000660.KS', name: 'SK Hynix' },
+        ],
+      },
+    },
+    'India': {
+      invertColors: false,
+      sections: {
+        'Stocks': [],
+      },
+    },
+    'Forex': {
+      invertColors: true,
+      sections: {
+        'INR Pairs': [
+          { symbol: 'USDINR=X', name: 'USD to INR' },
+          { symbol: 'EURINR=X', name: 'EUR to INR' },
+          { symbol: 'GBPINR=X', name: 'GBP to INR' },
+          { symbol: 'RONINR=X', name: 'RON to INR' },
+        ],
+      },
+    },
+  };
+
+  // Tabs that show top movers, mapped to a universe of liquid tickers we
+  // poll and rank ourselves (the Yahoo screener doesn't filter by region).
+  const MOVER_UNIVERSES = {
+    'US Stocks': [
+      'AAPL','MSFT','GOOGL','AMZN','NVDA','META','TSLA','BRK-B','JPM','JNJ',
+      'V','PG','UNH','MA','HD','BAC','XOM','CVX','ABBV','KO',
+      'PEP','LLY','AVGO','COST','WMT','DIS','NFLX','PFE','MRK','TMO',
+      'CSCO','ABT','ACN','ADBE','ORCL','INTC','AMD','IBM','CRM','NKE',
+      'MCD','SBUX','GS','MS','WFC','BLK','AXP','BA','CAT','DE',
+    ],
+    'India': [
+      'RELIANCE.NS','TCS.NS','HDFCBANK.NS','INFY.NS','ICICIBANK.NS',
+      'HINDUNILVR.NS','ITC.NS','SBIN.NS','BHARTIARTL.NS','KOTAKBANK.NS',
+      'BAJFINANCE.NS','LT.NS','AXISBANK.NS','ASIANPAINT.NS','MARUTI.NS',
+      'HCLTECH.NS','M&M.NS','TITAN.NS','SUNPHARMA.NS','ONGC.NS',
+      'NTPC.NS','NESTLEIND.NS','ULTRACEMCO.NS','TATAMOTORS.NS','WIPRO.NS',
+      'ADANIENT.NS','JSWSTEEL.NS','POWERGRID.NS','COALINDIA.NS','BAJAJFINSV.NS',
+      'TATASTEEL.NS','TECHM.NS','INDUSINDBK.NS','GRASIM.NS','BRITANNIA.NS',
+      'HEROMOTOCO.NS','DRREDDY.NS','CIPLA.NS','HINDALCO.NS','ADANIPORTS.NS',
+      'EICHERMOT.NS','APOLLOHOSP.NS','DIVISLAB.NS','SBILIFE.NS','HDFCLIFE.NS',
+      'BPCL.NS','BAJAJ-AUTO.NS','TATACONSUM.NS','LTIM.NS','SHRIRAMFIN.NS',
+    ],
+  };
+  const MOVERS_REFRESH_MS = 60_000; // movers update every 60s (vs 2s for the table)
+
+  // Auto-routing: where does a freshly added symbol belong?
+  function routeForSymbol(symbol) {
+    if (symbol.endsWith('=X'))                          return { tab: 'Forex',     section: 'INR Pairs' };
+    if (symbol.endsWith('.NS') || symbol.endsWith('.BO')) return { tab: 'India',     section: 'Stocks' };
+    if (symbol.startsWith('^') || symbol.includes('.')) return { tab: 'US Stocks', section: 'Others' };
+    return { tab: 'US Stocks', section: 'Stocks' };
+  }
+
+  const STORAGE_KEY = 'stock-tracker.tabs.v1';
+
+  function loadTabs() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return JSON.parse(JSON.stringify(DEFAULT_TABS));
+
+      const parsed = JSON.parse(raw);
+
+      // Migrate: old "Markets" tab → "US Stocks", ensure "India" tab exists
+      if (parsed['Markets'] && !parsed['US Stocks']) {
+        parsed['US Stocks'] = parsed['Markets'];
+        delete parsed['Markets'];
+      }
+      if (!parsed['India']) {
+        parsed['India'] = { invertColors: false, sections: { 'Stocks': [] } };
+      }
+
+      // Preserve preferred order: US Stocks, India, Forex, then any custom
+      const order = ['US Stocks', 'India', 'Forex'];
+      const out = {};
+      order.forEach(n => { if (parsed[n]) out[n] = parsed[n]; });
+      Object.keys(parsed).forEach(n => { if (!out[n]) out[n] = parsed[n]; });
+      return out;
+    } catch (e) { console.warn('Failed to load saved tabs', e); }
+    return JSON.parse(JSON.stringify(DEFAULT_TABS));
+  }
+
+  function saveTabs() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(TABS));
+  }
+
+  // ── State ─────────────────────────────────────────────────
+  const REFRESH_SECS = 2;
+  let TABS = loadTabs();
+  let TAB_NAMES = Object.keys(TABS);
+  let activeTab = TAB_NAMES[0];
+  let cache = {};                       // tab → quotes[] (plus '_indicators')
+  let countdown = REFRESH_SECS;
+  let tickTimer = null;
+  let openAddSection = null;            // section name with the add input open
+  let addError = '';
+  let suggestions = [];                 // [{symbol, name, type, exchange}]
+  let suggestIdx = -1;                  // highlighted suggestion
+  let searchSeq = 0;                    // dedupe out-of-order search responses
+  let searchTimer = null;
+
+  // Per-tab sort state (persisted)
+  const SORT_KEY = 'stock-tracker.sort.v1';
+  function loadSort() {
+    try { return JSON.parse(localStorage.getItem(SORT_KEY)) || {}; }
+    catch (_) { return {}; }
+  }
+  function saveSort() { localStorage.setItem(SORT_KEY, JSON.stringify(sortState)); }
+  let sortState = loadSort();
+
+  const DEFAULT_SORT = { by: 'name', dir: 'asc' };
+
+  function getSort(tab) {
+    return sortState[tab] || { ...DEFAULT_SORT };
+  }
+
+  // Click cycle on a column: desc → asc → cleared (back to default = name asc).
+  function toggleSort(tab, by) {
+    const cur = getSort(tab);
+    if (cur.by !== by) {
+      sortState[tab] = { by, dir: 'desc' };
+    } else if (cur.dir === 'desc') {
+      sortState[tab] = { by, dir: 'asc' };
+    } else {
+      // third click clears to default
+      delete sortState[tab];
+    }
+    saveSort();
+  }
+
+  function sortValue(row, q, by) {
+    switch (by) {
+      case 'name':      return (row.name || '').toLowerCase();
+      case 'prevClose': return q?.regularMarketPreviousClose;
+      case 'price':     return q?.regularMarketPrice;
+      case 'change':    return q?.regularMarketChange;
+      case 'changePct': return q?.regularMarketChangePercent;
+    }
+  }
+
+  function compareRows(a, b, q, by, dir) {
+    const va = sortValue(a, q[a.symbol], by);
+    const vb = sortValue(b, q[b.symbol], by);
+    const aMissing = va == null || (typeof va === 'number' && isNaN(va));
+    const bMissing = vb == null || (typeof vb === 'number' && isNaN(vb));
+    if (aMissing && bMissing) return 0;
+    if (aMissing) return 1;   // missing values always sink to bottom
+    if (bMissing) return -1;
+    let cmp;
+    if (typeof va === 'string') cmp = va.localeCompare(vb);
+    else                        cmp = va - vb;
+    return dir === 'asc' ? cmp : -cmp;
+  }
+
+  // ── Helpers ───────────────────────────────────────────────
+  function allSymbols(tab) {
+    return Object.values(TABS[tab].sections).flat().map(r => r.symbol);
+  }
+
+  function fmt(n, dec = 2) {
+    if (n == null || isNaN(n)) return '—';
+    return n.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  }
+
+  function cls(n, invert = false) {
+    if (n == null || isNaN(n) || n === 0) return 'neu';
+    const positive = invert ? n < 0 : n > 0;
+    return positive ? 'pos' : 'neg';
+  }
+
+  function sign(n) { return (n > 0 ? '+' : ''); }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c =>
+      ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  }
+
+  function logoUrl(symbol) {
+    if (symbol.startsWith('^') || symbol.endsWith('=X') || symbol.includes('.')) return null;
+    const t = symbol.replace('-', '.');
+    return `https://financialmodelingprep.com/image-stock/${t}.png`;
+  }
+
+  function nameCell(row) {
+    const url = logoUrl(row.symbol);
+    const initials = row.name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+    const safeInitials = escapeHtml(initials);
+    const logo = url
+      ? `<img class="logo" src="${url}" alt="" onerror="this.outerHTML='<div class=&quot;logo-fallback&quot;>${safeInitials}</div>'">`
+      : `<div class="logo-fallback">${safeInitials}</div>`;
+    return `
+      <div class="name-cell">
+        ${logo}
+        <div>
+          <div class="name">${escapeHtml(row.name)}</div>
+          <div class="ticker">${escapeHtml(row.symbol)}</div>
+        </div>
+      </div>`;
+  }
+
+  // ── Movers strip ──────────────────────────────────────────
+  const moversExpanded = true; // always-open per user preference
+
+  function moverRow(q) {
+    const pct = q.regularMarketChangePercent;
+    const c = pct >= 0 ? 'pos' : 'neg';
+    const url = logoUrl(q.symbol);
+    const display = q.name || q.symbol;
+    const initials = display.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+    const safeInitials = escapeHtml(initials);
+    const logo = url
+      ? `<img class="mover-logo" src="${url}" alt="" onerror="this.outerHTML='<div class=&quot;mover-logo-fallback&quot;>${safeInitials}</div>'">`
+      : `<div class="mover-logo-fallback">${safeInitials}</div>`;
+    return `
+      <div class="mover-row">
+        ${logo}
+        <span class="mover-name">${escapeHtml(display)}</span>
+        <span class="mover-pct ${c}">${sign(pct)}${fmt(pct)}%</span>
+      </div>`;
+  }
+
+  function renderMovers() {
+    const wrap   = document.getElementById('movers');
+    const region = document.getElementById('movers-region');
+    const body   = document.getElementById('movers-content');
+
+    wrap.classList.toggle('expanded', moversExpanded);
+
+    if (!MOVER_UNIVERSES[activeTab]) {
+      wrap.style.display = 'none';
+      return;
+    }
+    wrap.style.display = '';
+    region.textContent = activeTab;
+
+    if (!moversExpanded) { body.innerHTML = ''; return; }
+
+    const m = (cache._movers || {})[activeTab];
+    if (!m || (!m.gainers.length && !m.losers.length)) {
+      body.innerHTML = '<div class="movers-empty">Loading top movers…</div>';
+      return;
+    }
+
+    body.innerHTML = `
+      <div>
+        <div class="movers-col-title gain">Top Gainers</div>
+        ${m.gainers.map(moverRow).join('') || '<div class="movers-empty">—</div>'}
+      </div>
+      <div>
+        <div class="movers-col-title loss">Top Losers</div>
+        ${m.losers.map(moverRow).join('')  || '<div class="movers-empty">—</div>'}
+      </div>`;
+  }
+
+
+  // ── Indicators ────────────────────────────────────────────
+  function renderIndicators() {
+    const quotes = cache._indicators || [];
+    const map = {};
+    quotes.forEach(q => { map[q.symbol] = q; });
+
+    document.getElementById('indicators').innerHTML = currentIndicators().map(ind => {
+      const q = map[ind.symbol];
+      if (!q) return `
+        <div class="indicator">
+          <div class="indicator-name">${escapeHtml(ind.name)}</div>
+          <div class="indicator-row"><div class="indicator-price">—</div><div class="indicator-pct neu">—</div></div>
+        </div>`;
+      const pct = q.regularMarketChangePercent;
+      const c = cls(pct);
+      return `
+        <div class="indicator">
+          <div class="indicator-name">${escapeHtml(ind.name)}</div>
+          <div class="indicator-row">
+            <div class="indicator-price">${fmt(q.regularMarketPrice)}</div>
+            <div class="indicator-pct ${c}">${sign(pct)}${fmt(pct)}%</div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  // ── Tabs ──────────────────────────────────────────────────
+  function renderTabs() {
+    document.getElementById('tabs').innerHTML = TAB_NAMES.map(name =>
+      `<div class="tab${name === activeTab ? ' active' : ''}" data-tab="${escapeHtml(name)}">${escapeHtml(name)}</div>`
+    ).join('');
+
+    document.querySelectorAll('.tab').forEach(el =>
+      el.addEventListener('click', () => {
+        activeTab = el.dataset.tab;
+        openAddSection = null;
+        addError = '';
+        renderTabs();
+        renderIndicators();
+        renderTable();
+        renderMovers();
+      })
+    );
+  }
+
+  // ── Table ─────────────────────────────────────────────────
+  function rowHtml(row, q, invert, opts = {}) {
+    const empty = !q;
+    const pct = q?.regularMarketChangePercent;
+    const chg = q?.regularMarketChange;
+    const c   = cls(pct, invert);
+
+    const trailing = opts.readOnly
+      ? '<td class="remove-cell"></td>'
+      : `<td class="remove-cell"><button class="remove-btn" data-action="remove" data-symbol="${escapeHtml(row.symbol)}" title="Remove">×</button></td>`;
+
+    return `
+      <tr class="row" data-symbol="${escapeHtml(row.symbol)}">
+        <td>${nameCell(row)}</td>
+        <td>${empty ? '<span class="neu">—</span>' : fmt(q.regularMarketPreviousClose)}</td>
+        <td class="price">${empty ? '<span class="neu">—</span>' : fmt(q.regularMarketPrice)}</td>
+        <td class="${c}">${empty ? '<span class="neu">—</span>' : sign(chg) + fmt(chg)}</td>
+        <td>${empty
+          ? '<span class="pct-badge neu">—</span>'
+          : `<span class="pct-badge ${c}">${sign(pct)}${fmt(pct)}%</span>`}</td>
+        ${trailing}
+      </tr>`;
+  }
+
+  function moverSection(label, quotes, invert) {
+    if (!quotes || !quotes.length) return '';
+    const parts = [`<tr class="section"><td colspan="6">${escapeHtml(label)}</td></tr>`];
+    quotes.forEach(q => {
+      const row = { symbol: q.symbol, name: q.name || q.symbol };
+      parts.push(rowHtml(row, q, invert, { readOnly: true }));
+    });
+    return parts.join('');
+  }
+
+  function sortableHeader(key, label, align, sortBy, sortDir) {
+    const active = sortBy === key;
+    const arrow = active ? (sortDir === 'asc' ? '▲' : '▼') : '▾';
+    return `<th class="sortable${active ? ' active' : ''}" data-sort="${key}" style="text-align:${align}">${escapeHtml(label)}<span class="sort-arrow">${arrow}</span></th>`;
+  }
+
+  function wireSortActions() {
+    document.querySelectorAll('th.sortable').forEach(el =>
+      el.addEventListener('click', () => {
+        toggleSort(activeTab, el.dataset.sort);
+        renderTable();
+      })
+    );
+  }
+
+  function sectionHeader(sectionName) {
+    return `
+      <tr class="section">
+        <td colspan="6">
+          <div class="section-header">
+            <span>${escapeHtml(sectionName)}</span>
+            <span class="add-btn" data-action="open-add" data-section="${escapeHtml(sectionName)}">+ Add</span>
+          </div>
+        </td>
+      </tr>`;
+  }
+
+  function addRowHtml(sectionName) {
+    return `
+      <tr class="add-row">
+        <td colspan="6">
+          <div class="add-input-wrap">
+            <input id="add-input" class="add-input" type="text" placeholder="Type a ticker or company name (e.g. AAPL or Apple)" autocomplete="off" />
+            <span class="add-hint">↑↓ to navigate · Enter to add · Esc to cancel</span>
+          </div>
+          <div id="suggest-container"></div>
+          ${addError ? `<div class="add-error">${escapeHtml(addError)}</div>` : ''}
+        </td>
+      </tr>`;
+  }
+
+  function renderTable() {
+    const el = document.getElementById('scroll');
+    const quotes = cache[activeTab];
+
+    if (!quotes) {
+      el.innerHTML = '<div class="state"><div class="spinner"></div>Fetching quotes…</div>';
+      return;
+    }
+
+    // Preserve the add input's state across re-renders so the 2s refresh
+    // doesn't wipe out what the user is typing.
+    const prevInput = document.getElementById('add-input');
+    const preserved = prevInput
+      ? { value: prevInput.value, start: prevInput.selectionStart, end: prevInput.selectionEnd, focused: document.activeElement === prevInput }
+      : null;
+
+    const quoteMap = {};
+    quotes.forEach(q => { quoteMap[q.symbol] = q; });
+
+    const tab = TABS[activeTab];
+    const invert = !!tab.invertColors;
+    const sections = tab.sections;
+    const bodyParts = [];
+
+    const { by: sortBy, dir: sortDir } = getSort(activeTab);
+
+    for (const [sectionName, rows] of Object.entries(sections)) {
+      bodyParts.push(sectionHeader(sectionName));
+
+      if (openAddSection === sectionName) bodyParts.push(addRowHtml(sectionName));
+
+      const sorted = [...rows].sort((a, b) => compareRows(a, b, quoteMap, sortBy, sortDir));
+      sorted.forEach(row => bodyParts.push(rowHtml(row, quoteMap[row.symbol], invert)));
+    }
+
+    el.innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            ${sortableHeader('name',      'Name',       'left',  sortBy, sortDir)}
+            ${sortableHeader('prevClose', 'Prev Close', 'right', sortBy, sortDir)}
+            ${sortableHeader('price',     'Price',      'right', sortBy, sortDir)}
+            ${sortableHeader('change',    'Change',     'right', sortBy, sortDir)}
+            ${sortableHeader('changePct', 'Change %',   'right', sortBy, sortDir)}
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>${bodyParts.join('')}</tbody>
+      </table>`;
+
+    wireTableActions();
+    wireSortActions();
+
+    if (preserved) {
+      const next = document.getElementById('add-input');
+      if (next) {
+        next.value = preserved.value;
+        if (preserved.focused) {
+          next.focus();
+          try { next.setSelectionRange(preserved.start, preserved.end); } catch (_) {}
+        }
+      }
+    }
+  }
+
+  // ── Add / remove actions ──────────────────────────────────
+  function wireTableActions() {
+    document.querySelectorAll('[data-action="open-add"]').forEach(el =>
+      el.addEventListener('click', () => {
+        const sec = el.dataset.section;
+        openAddSection = openAddSection === sec ? null : sec;
+        addError = '';
+        suggestions = [];
+        suggestIdx = -1;
+        renderTable();
+      })
+    );
+
+    document.querySelectorAll('[data-action="remove"]').forEach(el =>
+      el.addEventListener('click', () => removeSymbol(el.dataset.symbol))
+    );
+
+    const input = document.getElementById('add-input');
+    if (input) {
+      input.addEventListener('input', onSearchInput);
+      input.addEventListener('keydown', onSearchKey);
+    }
+
+    wireSuggestionClicks();
+  }
+
+  function wireSuggestionClicks() {
+    document.querySelectorAll('.suggest-item').forEach(el =>
+      el.addEventListener('mousedown', (e) => {
+        e.preventDefault(); // keep focus on input
+        const i = Number(el.dataset.idx);
+        if (!isNaN(i) && suggestions[i]) selectSuggestion(suggestions[i]);
+      })
+    );
+  }
+
+  function onSearchInput(e) {
+    const q = e.target.value.trim();
+    addError = '';
+
+    clearTimeout(searchTimer);
+    if (!q) { suggestions = []; suggestIdx = -1; renderSuggestions(); return; }
+
+    searchTimer = setTimeout(() => doSearch(q), 180);
+  }
+
+  async function doSearch(q) {
+    const mySeq = ++searchSeq;
+    const result = await window.stockAPI.search(q);
+    if (mySeq !== searchSeq) return; // a newer search has fired; ignore this one
+
+    if (result.ok && result.quotes.length) {
+      suggestions = result.quotes;
+    } else {
+      // Yahoo search returned nothing — offer a "use as ticker" fallback so
+      // the user can still add unusual symbols (e.g. KRX:000660 style).
+      suggestions = [{ symbol: q.toUpperCase(), name: `Use "${q.toUpperCase()}" as ticker`, type: 'TICKER' }];
+    }
+    suggestIdx = 0;
+    renderSuggestions();
+  }
+
+  function renderSuggestions() {
+    const el = document.getElementById('suggest-container');
+    if (!el) return;
+    if (!suggestions.length) { el.innerHTML = ''; return; }
+
+    el.innerHTML = `
+      <div class="suggest">
+        ${suggestions.map((s, i) => {
+          const url = logoUrl(s.symbol);
+          const initials = (s.name || s.symbol).split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+          const safeInitials = escapeHtml(initials);
+          const logo = url
+            ? `<img class="logo" src="${url}" alt="" onerror="this.outerHTML='<div class=&quot;logo-fallback&quot;>${safeInitials}</div>'">`
+            : `<div class="logo-fallback">${safeInitials}</div>`;
+          return `
+            <div class="suggest-item${i === suggestIdx ? ' active' : ''}" data-idx="${i}">
+              <div class="suggest-left">
+                ${logo}
+                <div class="suggest-text">
+                  <div class="suggest-sym">${escapeHtml(s.symbol)}</div>
+                  <div class="suggest-name">${escapeHtml(s.name)}</div>
+                </div>
+              </div>
+              <div class="suggest-meta">${escapeHtml(s.exchange || s.type || '')}</div>
+            </div>`;
+        }).join('')}
+      </div>`;
+    wireSuggestionClicks();
+  }
+
+  function onSearchKey(e) {
+    if (e.key === 'Escape') {
+      openAddSection = null;
+      addError = '';
+      suggestions = [];
+      renderTable();
+      return;
+    }
+
+    if (!suggestions.length) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      suggestIdx = (suggestIdx + 1) % suggestions.length;
+      renderSuggestions();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      suggestIdx = (suggestIdx - 1 + suggestions.length) % suggestions.length;
+      renderSuggestions();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const pick = suggestions[suggestIdx];
+      if (pick) selectSuggestion(pick);
+    }
+  }
+
+  async function selectSuggestion(pick) {
+    if (!openAddSection) return;
+
+    // Auto-route based on the symbol's exchange suffix, not where the user
+    // clicked "+ Add". So adding RELIANCE.NS from the US tab still lands in India.
+    const route = routeForSymbol(pick.symbol);
+    const destTab     = TABS[route.tab]?.sections[route.section] ? route.tab     : activeTab;
+    const destSection = TABS[route.tab]?.sections[route.section] ? route.section : openAddSection;
+    const rows = TABS[destTab].sections[destSection];
+
+    if (rows.some(r => r.symbol === pick.symbol)) {
+      addError = `${pick.symbol} is already in ${destTab}`;
+      renderTable();
+      return;
+    }
+
+    // For the "use as ticker" fallback, validate by fetching first
+    if (pick.type === 'TICKER') {
+      const check = await window.stockAPI.fetchQuotes([pick.symbol]);
+      if (!check.ok || !check.data.length) {
+        addError = `Couldn't fetch a quote for "${pick.symbol}"`;
+        renderTable();
+        return;
+      }
+    }
+
+    rows.push({ symbol: pick.symbol, name: pick.name });
+    saveTabs();
+    openAddSection = null;
+    suggestions = [];
+    addError = '';
+
+    // Switch to the destination tab so the user can see where it landed
+    activeTab = destTab;
+    renderTabs();
+    await refresh();
+  }
+
+  function removeSymbol(symbol) {
+    const sections = TABS[activeTab].sections;
+    for (const [_, rows] of Object.entries(sections)) {
+      const idx = rows.findIndex(r => r.symbol === symbol);
+      if (idx !== -1) {
+        rows.splice(idx, 1);
+        saveTabs();
+        renderTable();
+        return;
+      }
+    }
+  }
+
+  // ── Fetch ─────────────────────────────────────────────────
+  async function fetchSymbols(symbols) {
+    if (!symbols.length) return [];
+    const result = await window.stockAPI.fetchQuotes(symbols);
+    return result.ok ? result.data : [];
+  }
+
+  // The mover universe for a tab = curated list + the user's own watchlist
+  // symbols that match the region (so anything you track is eligible).
+  function moverUniverseFor(tab) {
+    const base = MOVER_UNIVERSES[tab] || [];
+    if (!TABS[tab]) return base;
+
+    const userSyms = allSymbols(tab);
+    const regional = userSyms.filter(s => {
+      if (tab === 'India')     return s.endsWith('.NS') || s.endsWith('.BO');
+      if (tab === 'US Stocks') return !s.includes('.') && !s.includes('=') && !s.startsWith('^');
+      return false;
+    });
+
+    return [...new Set([...base, ...regional])];
+  }
+
+  async function refreshMovers() {
+    cache._movers = cache._movers || {};
+    for (const tab of Object.keys(MOVER_UNIVERSES)) {
+      const universe = moverUniverseFor(tab);
+      const quotes = await fetchSymbols(universe);
+      const valid = quotes.filter(q => q.regularMarketChangePercent != null && !isNaN(q.regularMarketChangePercent));
+      valid.sort((a, b) => b.regularMarketChangePercent - a.regularMarketChangePercent);
+      cache._movers[tab] = {
+        gainers: valid.slice(0, 5),
+        losers:  valid.slice(-5).reverse(),
+      };
+    }
+    renderMovers();
+  }
+
+  async function refresh() {
+    document.getElementById('status').textContent = 'Refreshing…';
+
+    const jobs = [
+      fetchSymbols(allIndicatorSymbols()).then(d => { cache._indicators = d; }),
+      ...TAB_NAMES.map(name =>
+        fetchSymbols(allSymbols(name)).then(d => { cache[name] = d; })
+      ),
+    ];
+
+    await Promise.all(jobs);
+    renderIndicators();
+    if (!openAddSection) renderTable();
+    startCountdown();
+  }
+
+  function startCountdown() {
+    countdown = REFRESH_SECS;
+    clearInterval(tickTimer);
+    tickTimer = setInterval(() => {
+      countdown--;
+      document.getElementById('status').textContent = `Refreshes in ${countdown}s`;
+      if (countdown <= 0) { clearInterval(tickTimer); refresh(); }
+    }, 1000);
+  }
+
+  // ── Boot ──────────────────────────────────────────────────
+  renderTabs();
+  renderMovers();
+
+  if (!window.stockAPI) {
+    document.getElementById('status').textContent = 'Preview mode';
+    document.getElementById('scroll').innerHTML = `
+      <div class="state" style="padding:50px 24px;line-height:1.6;">
+        <div style="font-size:14px;color:var(--text);margin-bottom:8px;font-weight:600;">
+          Live data only loads in the Electron app
+        </div>
+        Yahoo Finance blocks browser fetches via CORS.<br>
+        Run <code style="background:var(--surface);padding:2px 6px;border-radius:3px;color:var(--text);">npm start</code> from this folder to see live quotes.
+      </div>`;
+  } else {
+    refresh();
+    refreshMovers();
+    setInterval(refreshMovers, MOVERS_REFRESH_MS);
+  }
+</script>
+</body>
+</html>
